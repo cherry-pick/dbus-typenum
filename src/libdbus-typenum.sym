@@ -1,0 +1,13 @@
+LIBDBUS_TYPENUM_1 {
+global:
+        dbus_typenum_new;
+        dbus_typenum_free;
+        dbus_typenum_reset;
+        dbus_typenum_seed_u32;
+        dbus_typenum_seed_str;
+        dbus_typenum_step;
+        dbus_typenum_feed;
+        dbus_typenum_print;
+local:
+        *;
+};

@@ -15,7 +15,7 @@ static int fold(const char *arg) {
         _cleanup_(dbus_typenum_freep) DBusTypenum *e = NULL;
         int r;
 
-        r = dbus_typenum_new(&e);
+        r = dbus_typenum_new(&e, 0);
         if (r < 0)
                 return r;
 
@@ -34,7 +34,7 @@ static int unfold(const char *arg) {
         char c;
         int r;
 
-        r = dbus_typenum_new(&e);
+        r = dbus_typenum_new(&e, 0);
         if (r < 0)
                 return r;
 

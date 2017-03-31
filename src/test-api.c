@@ -15,7 +15,7 @@ static void test_api(void) {
         __attribute__((__cleanup__(dbus_typenum_freep))) DBusTypenum *gen = NULL;
         int r;
 
-        r = dbus_typenum_new(&gen);
+        r = dbus_typenum_new(&gen, 0);
         assert(r >= 0);
 
         dbus_typenum_seed_u32(gen, 0);

@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,11 +34,12 @@ enum {
 };
 
 enum {
-        DBUS_TYPENUM_COMPOUND_m,
         DBUS_TYPENUM_COMPOUND_a,
         DBUS_TYPENUM_COMPOUND_r,
         DBUS_TYPENUM_COMPOUND_e,
         _DBUS_TYPENUM_COMPOUND_N,
+        DBUS_TYPENUM_COMPOUND_m = _DBUS_TYPENUM_COMPOUND_N,
+        _DBUS_TYPENUM_COMPOUND_N_MAYBE,
 };
 
 struct DBusTypenumState {
@@ -47,6 +49,7 @@ struct DBusTypenumState {
 };
 
 struct DBusTypenum {
+        unsigned int n_compound;
         DBusTypenumState *tip;
         DBusTypenumState *unused;
         mpz_t seed;
@@ -300,14 +303,8 @@ static int dbus_typenum_rule_TYPE(DBusTypenum *gen) {
                  * TYPE ::= 'm' TYPE | 'a' TYPE | '(' TUPLE ')' | '{' PAIR '}'
                  */
                 mpz_sub_ui(state->seed, state->seed, _DBUS_TYPENUM_BASIC_N + 2);
-                val = mpz_fdiv_q_ui(state->seed, state->seed, _DBUS_TYPENUM_COMPOUND_N);
+                val = mpz_fdiv_q_ui(state->seed, state->seed, gen->n_compound);
                 switch (val) {
-                case DBUS_TYPENUM_COMPOUND_m:
-                        /*
-                         * TYPE ::= 'm' TYPE
-                         */
-                        state->rule = DBUS_TYPENUM_RULE_TYPE;
-                        return 'm';
                 case DBUS_TYPENUM_COMPOUND_a:
                         /*
                          * TYPE ::= 'a' TYPE
@@ -332,6 +329,12 @@ static int dbus_typenum_rule_TYPE(DBusTypenum *gen) {
                         next->rule = DBUS_TYPENUM_RULE_PAIR;
                         mpz_set(next->seed, state->seed);
                         return '{';
+                case DBUS_TYPENUM_COMPOUND_m:
+                        /*
+                         * TYPE ::= 'm' TYPE
+                         */
+                        state->rule = DBUS_TYPENUM_RULE_TYPE;
+                        return 'm';
                 default:
                         assert(0);
                         return 0;
@@ -446,7 +449,7 @@ static unsigned long dbus_typenum_unmap_basic(char c) {
 static void dbus_typenum_fold_MAYBE(DBusTypenum *gen) {
         DBusTypenumState *next, *state = gen->tip;
 
-        mpz_mul_ui(state->seed, state->seed, _DBUS_TYPENUM_COMPOUND_N);
+        mpz_mul_ui(state->seed, state->seed, gen->n_compound);
         mpz_add_ui(state->seed, state->seed, DBUS_TYPENUM_COMPOUND_m);
         mpz_add_ui(state->seed, state->seed, _DBUS_TYPENUM_BASIC_N + 2);
 
@@ -457,7 +460,7 @@ static void dbus_typenum_fold_MAYBE(DBusTypenum *gen) {
 static void dbus_typenum_fold_ARRAY(DBusTypenum *gen) {
         DBusTypenumState *next, *state = gen->tip;
 
-        mpz_mul_ui(state->seed, state->seed, _DBUS_TYPENUM_COMPOUND_N);
+        mpz_mul_ui(state->seed, state->seed, gen->n_compound);
         mpz_add_ui(state->seed, state->seed, DBUS_TYPENUM_COMPOUND_a);
         mpz_add_ui(state->seed, state->seed, _DBUS_TYPENUM_BASIC_N + 2);
 
@@ -506,11 +509,6 @@ static int dbus_typenum_parser_TYPE(DBusTypenum *gen, char c) {
                 return dbus_typenum_fold(gen);
         } else {
                 switch (c) {
-                case 'm':
-                        state->rule = DBUS_TYPENUM_PARSER_MAYBE;
-                        next = dbus_typenum_push(gen);
-                        next->rule = DBUS_TYPENUM_PARSER_TYPE;
-                        break;
                 case 'a':
                         state->rule = DBUS_TYPENUM_PARSER_ARRAY;
                         next = dbus_typenum_push(gen);
@@ -524,6 +522,14 @@ static int dbus_typenum_parser_TYPE(DBusTypenum *gen, char c) {
                 case '{':
                         state->rule = DBUS_TYPENUM_PARSER_PAIR;
                         return 0;
+                case 'm':
+                        if (gen->n_compound >= _DBUS_TYPENUM_COMPOUND_N_MAYBE) {
+                                state->rule = DBUS_TYPENUM_PARSER_MAYBE;
+                                next = dbus_typenum_push(gen);
+                                next->rule = DBUS_TYPENUM_PARSER_TYPE;
+                                break;
+                        }
+                        /* fallthrough */
                 default:
                         state->rule = DBUS_TYPENUM_PARSER_FAIL;
                         return -EINVAL;
@@ -563,7 +569,7 @@ static int dbus_typenum_parser_TUPLE(DBusTypenum *gen, char c) {
         }
 
         /* fold decision to use TUPLE */
-        mpz_mul_ui(state->seed, state->seed, _DBUS_TYPENUM_COMPOUND_N);
+        mpz_mul_ui(state->seed, state->seed, gen->n_compound);
         mpz_add_ui(state->seed, state->seed, DBUS_TYPENUM_COMPOUND_r);
         mpz_add_ui(next->seed, state->seed, _DBUS_TYPENUM_BASIC_N + 2);
 
@@ -604,7 +610,7 @@ static int dbus_typenum_parser_PAIR_CLOSE(DBusTypenum *gen, char c) {
         mpz_add(next->seed, next->seed, state->seed);
 
         /* fold decision to use PAIR */
-        mpz_mul_ui(next->seed, next->seed, _DBUS_TYPENUM_COMPOUND_N);
+        mpz_mul_ui(next->seed, next->seed, gen->n_compound);
         mpz_add_ui(next->seed, next->seed, DBUS_TYPENUM_COMPOUND_e);
         mpz_add_ui(next->seed, next->seed, _DBUS_TYPENUM_BASIC_N + 2);
 
@@ -614,6 +620,7 @@ static int dbus_typenum_parser_PAIR_CLOSE(DBusTypenum *gen, char c) {
 /**
  * dbus_typenum_new() - allocate enumerator context
  * @genp:               output argument for new enumerator context
+ * @flags:              flags to control behavior
  *
  * This function allocates a new enumerator. Each allocated enumerator is
  * independent of the other ones, and never touches *any* global state.
@@ -628,8 +635,11 @@ static int dbus_typenum_parser_PAIR_CLOSE(DBusTypenum *gen, char c) {
  *
  * Return: 0 on success, negative error code on failure.
  */
-_public_ int dbus_typenum_new(DBusTypenum **genp) {
+_public_ int dbus_typenum_new(DBusTypenum **genp, unsigned int flags) {
         DBusTypenum *gen;
+
+        if (flags & ~(DBUS_TYPENUM_FLAG_ALLOW_MAYBE))
+                return -EINVAL;
 
         gen = calloc(1, sizeof(*gen));
         if (!gen)
@@ -639,6 +649,11 @@ _public_ int dbus_typenum_new(DBusTypenum **genp) {
         mpz_init(gen->root);
         mpz_init(gen->root_squared);
         mpz_init(gen->index);
+
+        if (flags & DBUS_TYPENUM_FLAG_ALLOW_MAYBE)
+                gen->n_compound = _DBUS_TYPENUM_COMPOUND_N_MAYBE;
+        else
+                gen->n_compound = _DBUS_TYPENUM_COMPOUND_N;
 
         *genp = gen;
         return 0;

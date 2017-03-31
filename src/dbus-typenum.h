@@ -15,7 +15,11 @@ extern "C" {
 
 typedef struct DBusTypenum DBusTypenum;
 
-int dbus_typenum_new(DBusTypenum **genp);
+enum {
+        DBUS_TYPENUM_FLAG_ALLOW_MAYBE                   = 0x0001,
+};
+
+int dbus_typenum_new(DBusTypenum **genp, unsigned int flags);
 DBusTypenum *dbus_typenum_free(DBusTypenum *gen);
 
 void dbus_typenum_reset(DBusTypenum *gen);

@@ -37,6 +37,17 @@ mod_pkgconfig.generate(libraries: libdbus_typenum_shared,
                        description: 'D-Bus Type Enumerator')
 
 #
+# target: main program
+# We build a command-line tool that provides the basic library functions for
+# developer access.
+#
+
+dbus_typenum_exe = executable('dbus-typenum',
+                        ['main.c'],
+                        install: true,
+                        link_with: libdbus_typenum_shared)
+
+#
 # target: test-*
 # Bunch of unit, coverage, and runtime tests for public symbols and internal
 # library behavior.

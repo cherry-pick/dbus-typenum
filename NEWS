@@ -1,0 +1,9 @@
+dbus-typenum - D-Bus Type Enumerator
+
+CHANGES WITH 1:
+
+        * Initial release of dbus-typenum.
+
+        Contributions from: David Herrmann
+
+        - Berlin, 2017-XX-YY

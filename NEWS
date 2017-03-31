@@ -4,6 +4,12 @@ CHANGES WITH 1:
 
         * Initial release of dbus-typenum.
 
+        * Add the libdbus-typenum library. It implements a type-enumeration for
+          D-Bus types, as well as its reverse function.
+
+        * Add the dbus-typenum executable to expose libdbus-typenum via the
+          command-line.
+
         Contributions from: David Herrmann
 
         - Berlin, 2017-XX-YY
